@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Bunny Runner Animated PRO</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    overflow: hidden;
+    background: #87CEEB;
+}
+
+canvas {
+    display: block;
+    margin: auto;
+}
+
+#ui {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-weight: bold;
+    color: black;
+}
+
+.screen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 18px;
+    margin: 5px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="ui">Loading...</div>
+
+<div id="start" class="screen">
+    <h1>🐰 Bunny Runner ANIMATED</h1>
+    <button onclick="startGame()">Play</button>
+</div>
+
+<div id="over" class="screen" style="display:none;">
+    <h1>Game Over 💥</h1>
+    <p id="final"></p>
+    <button onclick="location.reload()">Restart</button>
+</div>
+
+<canvas id="game" width="900" height="350"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let running = false;
+let score = 0;
+let coins = 0;
+let high = localStorage.getItem("high") || 0;
+let speed = 6;
+
+// 🐰 Bunny
+let bunny = {
+    x: 80,
+    y: 240,
+    w: 40,
+    h: 40,
+    vy: 0,
+    jump: -12,
+    ground: true,
+    anim: 0
+};
+
+// objects
+let carrots = [];
+let coinItems = [];
+
+// start
+function startGame(){
+    document.getElementById("start").style.display = "none";
+    running = true;
+    loop();
+}
+
+// controls
+document.addEventListener("keydown",e=>{
+    if(e.code==="Space") jump();
+});
+document.addEventListener("touchstart",jump);
+
+function jump(){
+    if(!running) return;
+    if(bunny.ground){
+        bunny.vy = bunny.jump;
+        bunny.ground = false;
+    }
+}
+
+// spawn
+function spawn(){
+    if(Math.random()<0.6){
+        carrots.push({x:900,y:250,w:30,h:40});
+    } else {
+        coinItems.push({x:900,y:210,r:10});
+    }
+}
+
+// 🐰 ANIMATED BUNNY (FULL)
+function drawBunny(){
+    bunny.anim += 0.25;
+
+    // body
+    ctx.fillStyle = "white";
+    ctx.fillRect(bunny.x,bunny.y,bunny.w,bunny.h);
+
+    // ears
+    ctx.fillRect(bunny.x+8,bunny.y-18,8,22);
+    ctx.fillRect(bunny.x+24,bunny.y-18,8,22);
+
+    // eyes
+    ctx.fillStyle = "black";
+    ctx.fillRect(bunny.x+12,bunny.y+15,4,4);
+    ctx.fillRect(bunny.x+26,bunny.y+15,4,4);
+
+    // running legs animation
+    let move = Math.abs(Math.sin(bunny.anim)) * 10;
+
+    ctx.fillRect(bunny.x+8,bunny.y+35,6,6+move);
+    ctx.fillRect(bunny.x+26,bunny.y+35,6,6+(10-move));
+}
+
+// carrots (real shape)
+function drawCarrots(){
+    ctx.fillStyle = "orange";
+    carrots.forEach(c=>{
+        ctx.beginPath();
+        ctx.moveTo(c.x,c.y);
+        ctx.lineTo(c.x+15,c.y+40);
+        ctx.lineTo(c.x-15,c.y+40);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "green";
+        ctx.fillRect(c.x-5,c.y-10,10,10);
+        ctx.fillStyle = "orange";
+    });
+}
+
+// coins
+function drawCoins(){
+    ctx.fillStyle = "gold";
+    coinItems.forEach(c=>{
+        ctx.beginPath();
+        ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
+        ctx.fill();
+    });
+}
+
+// update physics
+function update(){
+    bunny.y += bunny.vy;
+    bunny.vy += 0.6;
+
+    if(bunny.y >= 240){
+        bunny.y = 240;
+        bunny.vy = 0;
+        bunny.ground = true;
+    }
+
+    carrots.forEach(c=>{
+        c.x -= speed;
+
+        if(
+            bunny.x < c.x+c.w &&
+            bunny.x+bunny.w > c.x &&
+            bunny.y < c.y+c.h &&
+            bunny.y+bunny.h > c.y
+        ){
+            gameOver();
+        }
+    });
+
+    coinItems.forEach(c=>{
+        c.x -= speed;
+
+        if(Math.abs(bunny.x-c.x)<20){
+            coins++;
+            c.collected = true;
+        }
+    });
+
+    carrots = carrots.filter(c=>c.x>-50);
+    coinItems = coinItems.filter(c=>!c.collected && c.x>-50);
+
+    score++;
+}
+
+// draw world
+function draw(){
+    ctx.clearRect(0,0,900,350);
+
+    // ground
+    ctx.fillStyle="#444";
+    ctx.fillRect(0,300,900,50);
+
+    drawBunny();
+    drawCarrots();
+    drawCoins();
+}
+
+// loop
+function loop(){
+    if(!running) return;
+
+    if(score % 80 === 0) spawn();
+
+    update();
+    draw();
+
+    document.getElementById("ui").innerText =
+    `Score: ${score} | Coins: ${coins} | High: ${high}`;
+
+    requestAnimationFrame(loop);
+}
+
+// game over
+function gameOver(){
+    running = false;
+
+    if(score > high){
+        high = score;
+        localStorage.setItem("high", high);
+    }
+
+    document.getElementById("over").style.display = "flex";
+    document.getElementById("final").innerText =
+    `Score: ${score} | Coins: ${coins} | High: ${high}`;
+}
+</script>
+
+</body>
+</html>
